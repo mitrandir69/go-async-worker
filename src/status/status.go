@@ -1,8 +1,3 @@
-/*
- * Copyright (c) RecFaces 2023.
- * All rights reserved.
- */
-
 package status
 
 const (
