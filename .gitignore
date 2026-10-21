@@ -1,10 +1,21 @@
-# Default ignored files
-/shelf/
-/workspace.xml
-# Editor-based HTTP Client requests
-/httpRequests/
-# Datasource local storage ignored files
-/dataSources/
-/dataSources.local.xml
-/.idea
-exe
+# Binaries and build output
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/dist/
+
+# Test and coverage output
+*.test
+*.out
+coverage.*
+
+# Go workspace files
+go.work
+go.work.sum
+
+# Editors
+/.idea/
+/.vscode/
+*.swp
