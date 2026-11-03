@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -19,7 +20,8 @@ import (
 //
 // The zero Pool is not usable. Build one with [New].
 type Pool[T any] struct {
-	cfg config
+	cfg     config
+	limiter *taskRateLimiter
 
 	mu    sync.Mutex
 	tasks []Task[T]
@@ -35,7 +37,11 @@ func New[T any](opts ...Option) *Pool[T] {
 	for _, opt := range opts {
 		opt(&cfg)
 	}
-	return &Pool[T]{cfg: cfg}
+	p := &Pool[T]{cfg: cfg}
+	if cfg.rate > 0 {
+		p.limiter = newTaskRateLimiter(cfg.rate, cfg.burst)
+	}
+	return p
 }
 
 // NewErrPool returns a pool of tasks that only report an error.
@@ -172,7 +178,14 @@ func (p *Pool[T]) run(ctx context.Context, stop context.CancelCauseFunc, tasks [
 		go func() {
 			defer wg.Done()
 			for idx := range jobs {
-				if ctx.Err() != nil {
+				var delay time.Duration
+				if p.cfg.jitter > 0 {
+					delay = time.Duration(rand.Int64N(int64(p.cfg.jitter)))
+				}
+				if !waitTaskDelay(ctx, delay) {
+					return
+				}
+				if !p.limiter.wait(ctx) {
 					return
 				}
 				results[idx] = p.runTask(ctx, idx, tasks[idx])
@@ -235,6 +248,24 @@ func (p *Pool[T]) run(ctx context.Context, stop context.CancelCauseFunc, tasks [
 	report.Results = results
 	report.EndedAt = time.Now()
 	return report
+}
+
+// waitTaskDelay returns false if the run is canceled before a task can start.
+func waitTaskDelay(ctx context.Context, delay time.Duration) bool {
+	if ctx.Err() != nil {
+		return false
+	}
+	if delay > 0 {
+		timer := time.NewTimer(delay)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return false
+		case <-timer.C:
+		}
+	}
+	// Cancellation and the timer may become ready together.
+	return ctx.Err() == nil
 }
 
 // runTask runs one task and turns whatever it does, a panic included,

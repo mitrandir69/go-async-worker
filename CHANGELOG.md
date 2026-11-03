@@ -52,6 +52,14 @@ to the new ones.
 
 ### Added
 
+- `WithRateLimit(rps, burst)` caps task starts with a token bucket shared by
+  all workers and runs of a pool. Token waits follow jitter, respect cancellation,
+  and require no external dependencies. Resetting tasks does not refill tokens.
+
+- `WithJitter(maxDelay)` spreads task starts with an independent random delay
+  before every task, including the first per worker. Waiting respects run
+  cancellation; jitter is disabled by default and does not enforce a rate limit.
+
 - Generic `Pool[T]` with `Task[T]`, `TaskFunc[T]`, and `Do` for tasks that
   produce no value.
 - `Report[T]` with `Status`, `Total`, `Succeeded`, `Results`, `Duration()`,

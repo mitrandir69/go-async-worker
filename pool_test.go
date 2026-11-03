@@ -519,6 +519,241 @@ func TestErrPool(t *testing.T) {
 	}
 }
 
+func TestRunWithJitter(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		name string
+		opts []Option
+	}{
+		{"default", nil},
+		{"zero", []Option{WithJitter(0)}},
+		{"negative", []Option{WithJitter(-time.Second)}},
+		{"smallest", []Option{WithJitter(time.Nanosecond)}},
+		{"enabled", []Option{WithJitter(time.Millisecond)}},
+		{"disabled again", []Option{WithJitter(time.Hour), WithJitter(0)}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			pool := New[int](append(tt.opts, WithLimit(3))...)
+			for i := 0; i < 12; i++ {
+				pool.AddFunc(func(context.Context) (int, error) { return i, nil })
+			}
+			for run := 0; run < 2; run++ {
+				report := pool.Run(context.Background())
+				if report.Status != StatusDone || report.Succeeded != 12 {
+					t.Fatalf("run %d: Status/Succeeded = %s/%d", run, report.Status, report.Succeeded)
+				}
+				for i, res := range report.Results {
+					if res.Index != i || res.Value != i || res.Err != nil {
+						t.Errorf("Results[%d] = %+v", i, res)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestRunWithJitterCancellation(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	var progress int
+	pool := New[int](WithLimit(4), WithJitter(time.Hour), WithProgress(func(done, total int) {
+		progress = done
+	}))
+	for i := 0; i < 100; i++ {
+		pool.AddFunc(func(context.Context) (int, error) { return i, nil })
+	}
+	handle := pool.Start(ctx)
+	select {
+	case <-handle.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("jitter wait did not stop on cancellation")
+	}
+	report := handle.Wait()
+	if report.Status != StatusCanceled {
+		t.Fatalf("Status = %q, want %q", report.Status, StatusCanceled)
+	}
+	for _, res := range report.Failed() {
+		if !errors.Is(res.Err, ErrNotRun) || !errors.Is(res.Err, context.DeadlineExceeded) {
+			t.Errorf("Results[%d].Err = %v, want ErrNotRun and DeadlineExceeded", res.Index, res.Err)
+		}
+	}
+	if progress != report.Succeeded {
+		t.Errorf("progress = %d, want %d completed tasks", progress, report.Succeeded)
+	}
+}
+
+func TestRunWithJitterFailFast(t *testing.T) {
+	t.Parallel()
+	boom := errors.New("boom")
+	pool := New[int](WithLimit(1), WithJitter(time.Millisecond), WithStopOnFirstError())
+	pool.AddFunc(func(context.Context) (int, error) { return 0, boom })
+	pool.AddFunc(func(context.Context) (int, error) {
+		t.Error("task started after fail-fast")
+		return 1, nil
+	})
+	report := pool.Run(context.Background())
+	if report.Status != StatusFailed || !errors.Is(report.Results[0].Err, boom) {
+		t.Fatalf("unexpected failure report: %+v", report)
+	}
+	if err := report.Results[1].Err; !errors.Is(err, ErrNotRun) || !errors.Is(err, ErrFailFast) {
+		t.Errorf("skipped task error = %v, want ErrNotRun and ErrFailFast", err)
+	}
+}
+
+func TestWaitTaskDelay(t *testing.T) {
+	t.Parallel()
+	t.Run("waits before starting", func(t *testing.T) {
+		t.Parallel()
+		const delay = 10 * time.Millisecond
+		start := time.Now()
+		if !waitTaskDelay(context.Background(), delay) {
+			t.Fatal("uncanceled wait did not allow a task to start")
+		}
+		if elapsed := time.Since(start); elapsed < delay {
+			t.Errorf("wait took %v, want at least %v", elapsed, delay)
+		}
+	})
+	t.Run("already canceled", func(t *testing.T) {
+		t.Parallel()
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		if waitTaskDelay(ctx, 0) || waitTaskDelay(ctx, time.Hour) {
+			t.Error("canceled wait allowed a task to start")
+		}
+	})
+	t.Run("canceled during delay", func(t *testing.T) {
+		t.Parallel()
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+		defer cancel()
+		done := make(chan bool, 1)
+		go func() { done <- waitTaskDelay(ctx, time.Hour) }()
+		select {
+		case ready := <-done:
+			if ready {
+				t.Error("canceled wait allowed a task to start")
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("wait did not stop on cancellation")
+		}
+	})
+}
+
+func TestRateLimitTaskStarts(t *testing.T) {
+	t.Parallel()
+	pool := New[int](WithLimit(4), WithRateLimit(100, 1), WithJitter(time.Millisecond))
+	for i := 0; i < 5; i++ {
+		pool.AddFunc(func(context.Context) (int, error) { return i, nil })
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	start := time.Now()
+	report := pool.Run(ctx)
+	if elapsed := time.Since(start); elapsed < 40*time.Millisecond {
+		t.Errorf("five starts with burst 1 at 100/s took %v, want >= 40ms", elapsed)
+	}
+	if report.Status != StatusDone || report.Succeeded != 5 {
+		t.Fatalf("unexpected report: %+v", report)
+	}
+	for i, res := range report.Results {
+		if res.Value != i || res.Index != i || res.Err != nil {
+			t.Errorf("Results[%d] = %+v", i, res)
+		}
+	}
+}
+
+func TestRateLimitSharedAcrossRuns(t *testing.T) {
+	t.Parallel()
+	var calls atomic.Int64
+	pool := NewErrPool(WithRateLimit(0.001, 1))
+	pool.Add(Do(func(context.Context) error { calls.Add(1); return nil }))
+	if report := pool.Run(context.Background()); report.Status != StatusDone {
+		t.Fatalf("first run: %+v", report)
+	}
+	// Reset and overlapping runs must not refill or duplicate the bucket.
+	pool.Reset()
+	pool.Add(Do(func(context.Context) error { calls.Add(1); return nil }))
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	one, two := pool.Start(ctx), pool.Start(ctx)
+	for _, handle := range []*Handle[Void]{one, two} {
+		report := handle.Wait()
+		if report.Status != StatusCanceled || !errors.Is(report.Results[0].Err, ErrNotRun) ||
+			!errors.Is(report.Results[0].Err, context.DeadlineExceeded) {
+			t.Errorf("run got fresh tokens or lost cancellation cause: %+v", report)
+		}
+	}
+	if got := calls.Load(); got != 1 {
+		t.Errorf("task calls = %d, want 1", got)
+	}
+}
+
+func TestRateLimitWaitCancellation(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		name     string
+		failFast bool
+		want     Status
+		cause    error
+	}{
+		{"stop", false, StatusCanceled, ErrStopped},
+		{"fail fast", true, StatusFailed, ErrFailFast},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			entered := make(chan struct{})
+			var progress int
+			opts := []Option{WithLimit(4), WithRateLimit(0.001, 1), WithProgress(func(done, total int) { progress = done })}
+			if tt.failFast {
+				opts = append(opts, WithStopOnFirstError())
+			}
+			pool := New[int](opts...)
+			for i := 0; i < 10; i++ {
+				pool.AddFunc(func(ctx context.Context) (int, error) {
+					close(entered) // A second start before cancellation is a test failure.
+					if tt.failFast {
+						return 0, errors.New("boom")
+					}
+					<-ctx.Done()
+					return 0, ctx.Err()
+				})
+			}
+			handle := pool.Start(context.Background())
+			defer handle.Stop()
+			select {
+			case <-entered:
+			case <-time.After(5 * time.Second):
+				t.Fatal("initial burst did not start a task")
+			}
+			if !tt.failFast {
+				handle.Stop()
+			}
+			select {
+			case <-handle.Done():
+			case <-time.After(5 * time.Second):
+				t.Fatal("rate limiter wait did not stop")
+			}
+			report := handle.Wait()
+			if report.Status != tt.want || progress != 1 {
+				t.Errorf("Status/progress = %s/%d, want %s/1", report.Status, progress, tt.want)
+			}
+			skipped := 0
+			for _, res := range report.Results {
+				if errors.Is(res.Err, ErrNotRun) {
+					skipped++
+					if !errors.Is(res.Err, tt.cause) {
+						t.Errorf("lost skip cause: %v", res.Err)
+					}
+				}
+			}
+			if skipped != 9 {
+				t.Errorf("skipped = %d, want 9", skipped)
+			}
+		})
+	}
+}
+
 func BenchmarkRun(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		pool := New[int](WithLimit(8))
