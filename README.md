@@ -147,10 +147,51 @@ report := handle.Wait() // idempotent
 | Option | Effect |
 | --- | --- |
 | `WithLimit(n)` | Tasks running at once. Default `runtime.NumCPU()`. A value below 1 is ignored, and the pool never starts more goroutines than it has tasks. |
+| `WithJitter(maxDelay)` | Independent random delay in `[0, maxDelay)` before every task, including the first per worker. Non-positive values disable it. Off by default. |
+| `WithRateLimit(rps, burst)` | Token bucket for task starts, shared by all workers and runs of this pool. Refills at `rps` tokens/sec, with up to `burst` immediate starts. Off by default. Invalid values disable it. |
 | `WithLabel(s)` | Names the run; copied into `Report.Label` for logs. |
 | `WithStopOnFirstError()` | Cancel the run as soon as a task fails. Off by default: a run attempts every task and collects all errors. |
 | `WithProgress(fn)` | Called once per finished task with `(done, total)`. Calls are serialized, so `fn` needs no lock. |
 | `WithoutPanicRecovery()` | Let a panicking task crash the process. |
+
+For remote calls, combine a concurrency limit with jitter to spread task starts:
+
+```go
+pool := asyncworker.New[payload](
+    asyncworker.WithLimit(4),
+    asyncworker.WithJitter(500*time.Millisecond),
+)
+```
+
+Each delay occupies a worker slot and stops promptly on context cancellation,
+`Handle.Stop`, or fail-fast. Tasks canceled while waiting are reported with
+`ErrNotRun` wrapping the cancellation reason, and do not trigger progress.
+Jitter permits starts close together; it does not enforce a requests-per-second
+limit or space out requests and retries inside a task.
+
+Use `WithRateLimit` to cap task admissions across workers:
+
+```go
+pool := asyncworker.New[payload](
+    asyncworker.WithLimit(4),
+    asyncworker.WithRateLimit(10, 1), // one immediate start, then 10 starts/sec
+    asyncworker.WithJitter(50*time.Millisecond),
+)
+```
+
+The bucket starts full and refills during idle time up to `burst` tokens.
+With `burst = 1`, permissions are spaced by at least `1/rps` seconds; larger
+bursts allow short spikes. Workers wait for jitter first, then for a token,
+and waiting occupies a worker slot. Task execution order is not guaranteed.
+Context cancellation, `Handle.Stop`, and fail-fast interrupt both waits;
+skipped tasks retain `ErrNotRun` and the cancellation cause without triggering
+progress callbacks.
+
+Repeated and concurrent runs of the same pool share its bucket. `Reset` only
+clears tasks; it does not refill the bucket. Separate pools have independent
+limits. Non-positive, NaN or infinite rates, or `burst < 1`, disable limiting,
+including a limit configured by an earlier option. The pool limits task starts;
+apply a limiter inside the task if it sends multiple requests or retries.
 
 ## Status values
 
@@ -169,7 +210,8 @@ report := handle.Wait() // idempotent
 - Your work arrives as an unbounded stream. A pool's tasks are added up front,
   so memory grows with the number of tasks. Feed a channel to a fixed set of
   workers instead.
-- You need retries, rate limiting or scheduling. This is a pool, not a queue.
+- You need retries, scheduling, or request-level rate limiting inside tasks.
+  This pool limits task starts and does not manage requests made within them.
 
 ## Examples
 

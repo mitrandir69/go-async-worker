@@ -1,12 +1,19 @@
 package asyncworker
 
-import "runtime"
+import (
+	"math"
+	"runtime"
+	"time"
+)
 
 // Option configures a pool. Pass options to [New] or [NewErrPool].
 type Option func(*config)
 
 type config struct {
 	limit         int
+	jitter        time.Duration
+	rate          float64
+	burst         int
 	label         string
 	stopOnErr     bool
 	recoverPanics bool
@@ -31,6 +38,43 @@ func WithLimit(n int) Option {
 	return func(c *config) {
 		if n >= 1 {
 			c.limit = n
+		}
+	}
+}
+
+// WithJitter adds an independent, uniformly random delay in [0, maxDelay)
+// before every task, including each worker's first task. The delay occupies
+// a worker slot and is interrupted when the run is canceled; a task still
+// waiting then is reported with [ErrNotRun]. Jitter is disabled by default.
+// A non-positive maxDelay disables it, including one set by an earlier option.
+//
+// Jitter spreads task starts but does not enforce a requests-per-second limit
+// or a minimum interval between starts. It does not affect requests or retries
+// made within a task.
+func WithJitter(maxDelay time.Duration) Option {
+	return func(c *config) {
+		c.jitter = maxDelay
+	}
+}
+
+// WithRateLimit limits task starts using a token bucket shared by all workers
+// and runs of this pool. The bucket starts full, holds up to burst tokens, and
+// refills at rps tokens per second. Each task start consumes one token. With
+// burst 1, the first task can start immediately and subsequent starts are
+// spaced by at least 1/rps seconds. Idle time can replenish the burst.
+//
+// Workers wait after jitter, occupying a worker slot. Cancellation interrupts
+// the wait and tasks that have not started are reported with [ErrNotRun].
+// Requests and retries within a task are not limited. Separate pools have
+// independent buckets; [Pool.Reset] does not reset the bucket.
+//
+// Rate limiting is disabled by default. A non-positive or non-finite rps, or
+// a burst below 1, disables it, including a limit set by an earlier option.
+func WithRateLimit(rps float64, burst int) Option {
+	return func(c *config) {
+		c.rate, c.burst = 0, 0
+		if rps > 0 && !math.IsInf(rps, 0) && !math.IsNaN(rps) && burst >= 1 {
+			c.rate, c.burst = rps, burst
 		}
 	}
 }

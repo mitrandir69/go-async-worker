@@ -4,9 +4,36 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	asyncworker "github.com/mitrandir69/go-async-worker"
 )
+
+func ExampleWithJitter() {
+	pool := asyncworker.New[int](
+		asyncworker.WithLimit(4),
+		asyncworker.WithJitter(10*time.Millisecond),
+	)
+	for i := 0; i < 3; i++ {
+		pool.AddFunc(func(context.Context) (int, error) { return i, nil })
+	}
+	report := pool.Run(context.Background())
+	fmt.Println(report.Status, report.Values())
+	// Output: done [0 1 2]
+}
+
+func ExampleWithRateLimit() {
+	pool := asyncworker.New[int](
+		asyncworker.WithLimit(4),
+		asyncworker.WithRateLimit(100, 1),
+	)
+	for i := 0; i < 3; i++ {
+		pool.AddFunc(func(context.Context) (int, error) { return i, nil })
+	}
+	report := pool.Run(context.Background())
+	fmt.Println(report.Status, report.Values())
+	// Output: done [0 1 2]
+}
 
 // The type parameter is the value a task produces, so results come back
 // without a shared slice and without a mutex.
