@@ -25,7 +25,7 @@ func ExampleWithJitter() {
 func ExampleWithRateLimit() {
 	pool := asyncworker.New[int](
 		asyncworker.WithLimit(4),
-		asyncworker.WithRateLimit(100, 1),
+		asyncworker.WithRateLimit(100),
 	)
 	for i := 0; i < 3; i++ {
 		pool.AddFunc(func(context.Context) (int, error) { return i, nil })

@@ -1,0 +1,10 @@
+=== RUN   TestHTTPLoad30Seconds
+    pool_load_test.go:33: environment go=go1.26.5 os=windows arch=amd64 GOMAXPROCS=12 tasks=6016 workers=16 server_delay=5ms
+=== RUN   TestHTTPLoad30Seconds/sustained_rate_jitter
+    pool_load_test.go:83: settings jitter=50ms rate=200 automatic_burst=16
+    pool_load_test.go:148: STEADY complete_seconds=29 mean_rps=200.000 min_requests_per_second=200 max_requests_per_second=200
+    pool_load_test.go:151: LOAD scenario=sustained_rate_jitter tasks=6016 succeeded=6016 errors=0 elapsed_ms=30006.175 rps=200.492 http_p50_ms=5.560 http_p95_ms=6.254 peak_handlers=5 peak_100ms=36
+--- PASS: TestHTTPLoad30Seconds (30.01s)
+    --- PASS: TestHTTPLoad30Seconds/sustained_rate_jitter (30.01s)
+PASS
+ok  	github.com/mitrandir69/go-async-worker	31.429s

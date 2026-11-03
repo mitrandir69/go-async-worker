@@ -39,7 +39,12 @@ func New[T any](opts ...Option) *Pool[T] {
 	}
 	p := &Pool[T]{cfg: cfg}
 	if cfg.rate > 0 {
-		p.limiter = newTaskRateLimiter(cfg.rate, cfg.burst)
+		burst := cfg.limit
+		// Compare before converting so rates above the int range are safe.
+		if cfg.rate < float64(burst) {
+			burst = max(1, int(cfg.rate))
+		}
+		p.limiter = newTaskRateLimiter(cfg.rate, burst)
 	}
 	return p
 }
