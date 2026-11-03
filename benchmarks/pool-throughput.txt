@@ -1,0 +1,36 @@
+goos: windows
+goarch: amd64
+pkg: github.com/mitrandir69/go-async-worker
+cpu: AMD Ryzen 5 4600H with Radeon Graphics         
+BenchmarkPoolThroughput/tasks=1000/workers=1-12         	     454	    499474 ns/op	   2002105 tasks/s	   51128 B/op	      14 allocs/op
+BenchmarkPoolThroughput/tasks=1000/workers=1-12         	     408	    557751 ns/op	   1792916 tasks/s	   51103 B/op	      14 allocs/op
+BenchmarkPoolThroughput/tasks=1000/workers=1-12         	     399	    526683 ns/op	   1898675 tasks/s	   51130 B/op	      14 allocs/op
+BenchmarkPoolThroughput/tasks=1000/workers=1-12         	     460	    558609 ns/op	   1790160 tasks/s	   51095 B/op	      14 allocs/op
+BenchmarkPoolThroughput/tasks=1000/workers=1-12         	     456	    616962 ns/op	   1620845 tasks/s	   51105 B/op	      14 allocs/op
+BenchmarkPoolThroughput/tasks=1000/workers=8-12         	     301	    748497 ns/op	   1336010 tasks/s	   52462 B/op	      21 allocs/op
+BenchmarkPoolThroughput/tasks=1000/workers=8-12         	     309	    767569 ns/op	   1302814 tasks/s	   52284 B/op	      21 allocs/op
+BenchmarkPoolThroughput/tasks=1000/workers=8-12         	     286	    840270 ns/op	   1190093 tasks/s	   52298 B/op	      21 allocs/op
+BenchmarkPoolThroughput/tasks=1000/workers=8-12         	     285	    867260 ns/op	   1153057 tasks/s	   52308 B/op	      21 allocs/op
+BenchmarkPoolThroughput/tasks=1000/workers=8-12         	     264	    844603 ns/op	   1183989 tasks/s	   52221 B/op	      21 allocs/op
+BenchmarkPoolThroughput/tasks=1000/workers=32-12        	     265	    909982 ns/op	   1098923 tasks/s	   56201 B/op	      45 allocs/op
+BenchmarkPoolThroughput/tasks=1000/workers=32-12        	     266	    881091 ns/op	   1134957 tasks/s	   56201 B/op	      46 allocs/op
+BenchmarkPoolThroughput/tasks=1000/workers=32-12        	     271	    835430 ns/op	   1196988 tasks/s	   56150 B/op	      45 allocs/op
+BenchmarkPoolThroughput/tasks=1000/workers=32-12        	     277	    835473 ns/op	   1196927 tasks/s	   56244 B/op	      46 allocs/op
+BenchmarkPoolThroughput/tasks=1000/workers=32-12        	     295	    827169 ns/op	   1208942 tasks/s	   56130 B/op	      45 allocs/op
+BenchmarkPoolThroughput/tasks=10000/workers=1-12        	      42	   5503536 ns/op	   1817014 tasks/s	  502672 B/op	      14 allocs/op
+BenchmarkPoolThroughput/tasks=10000/workers=1-12        	      43	   4978770 ns/op	   2008528 tasks/s	  502672 B/op	      14 allocs/op
+BenchmarkPoolThroughput/tasks=10000/workers=1-12        	      43	   4979698 ns/op	   2008154 tasks/s	  502672 B/op	      14 allocs/op
+BenchmarkPoolThroughput/tasks=10000/workers=1-12        	      49	   4991267 ns/op	   2003499 tasks/s	  502672 B/op	      14 allocs/op
+BenchmarkPoolThroughput/tasks=10000/workers=1-12        	      38	   5466674 ns/op	   1829266 tasks/s	  502672 B/op	      14 allocs/op
+BenchmarkPoolThroughput/tasks=10000/workers=8-12        	      33	   7315215 ns/op	   1367014 tasks/s	  503792 B/op	      21 allocs/op
+BenchmarkPoolThroughput/tasks=10000/workers=8-12        	      32	   7433444 ns/op	   1345271 tasks/s	  503792 B/op	      21 allocs/op
+BenchmarkPoolThroughput/tasks=10000/workers=8-12        	      32	   7592253 ns/op	   1317132 tasks/s	  503823 B/op	      21 allocs/op
+BenchmarkPoolThroughput/tasks=10000/workers=8-12        	      28	   7530050 ns/op	   1328012 tasks/s	  503792 B/op	      21 allocs/op
+BenchmarkPoolThroughput/tasks=10000/workers=8-12        	      34	   7623397 ns/op	   1311751 tasks/s	  503848 B/op	      21 allocs/op
+BenchmarkPoolThroughput/tasks=10000/workers=32-12       	      31	   7636732 ns/op	   1309461 tasks/s	  507790 B/op	      46 allocs/op
+BenchmarkPoolThroughput/tasks=10000/workers=32-12       	      32	   7727209 ns/op	   1294128 tasks/s	  507779 B/op	      46 allocs/op
+BenchmarkPoolThroughput/tasks=10000/workers=32-12       	      31	   7647239 ns/op	   1307662 tasks/s	  507942 B/op	      47 allocs/op
+BenchmarkPoolThroughput/tasks=10000/workers=32-12       	      27	   7933652 ns/op	   1260454 tasks/s	  507706 B/op	      45 allocs/op
+BenchmarkPoolThroughput/tasks=10000/workers=32-12       	      30	   7749777 ns/op	   1290360 tasks/s	  507964 B/op	      47 allocs/op
+PASS
+ok  	github.com/mitrandir69/go-async-worker	9.094s

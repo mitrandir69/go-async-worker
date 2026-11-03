@@ -1,0 +1,97 @@
+=== RUN   TestHTTPLoad
+    pool_load_test.go:24: environment go=go1.26.5 os=windows arch=amd64 GOMAXPROCS=12 tasks=400 workers=16 server_delay=5ms
+=== RUN   TestHTTPLoad/limit
+    pool_load_test.go:68: settings jitter=0s rate=0 automatic_burst=0
+    pool_load_test.go:117: LOAD scenario=limit tasks=400 succeeded=400 errors=0 elapsed_ms=146.800 rps=2724.788 http_p50_ms=5.747 http_p95_ms=6.469 peak_handlers=16 peak_100ms=288
+=== RUN   TestHTTPLoad/jitter
+    pool_load_test.go:68: settings jitter=50ms rate=0 automatic_burst=0
+    pool_load_test.go:117: LOAD scenario=jitter tasks=400 succeeded=400 errors=0 elapsed_ms=828.574 rps=482.757 http_p50_ms=5.449 http_p95_ms=6.000 peak_handlers=7 peak_100ms=58
+=== RUN   TestHTTPLoad/rate
+    pool_load_test.go:68: settings jitter=0s rate=200 automatic_burst=16
+    pool_load_test.go:117: LOAD scenario=rate tasks=400 succeeded=400 errors=0 elapsed_ms=1927.167 rps=207.559 http_p50_ms=5.440 http_p95_ms=6.186 peak_handlers=16 peak_100ms=36
+=== RUN   TestHTTPLoad/rate_jitter
+    pool_load_test.go:68: settings jitter=50ms rate=200 automatic_burst=16
+    pool_load_test.go:117: LOAD scenario=rate_jitter tasks=400 succeeded=400 errors=0 elapsed_ms=1930.280 rps=207.224 http_p50_ms=5.592 http_p95_ms=6.570 peak_handlers=6 peak_100ms=36
+--- PASS: TestHTTPLoad (4.84s)
+    --- PASS: TestHTTPLoad/limit (0.15s)
+    --- PASS: TestHTTPLoad/jitter (0.83s)
+    --- PASS: TestHTTPLoad/rate (1.93s)
+    --- PASS: TestHTTPLoad/rate_jitter (1.93s)
+=== RUN   TestHTTPLoad
+    pool_load_test.go:24: environment go=go1.26.5 os=windows arch=amd64 GOMAXPROCS=12 tasks=400 workers=16 server_delay=5ms
+=== RUN   TestHTTPLoad/limit
+    pool_load_test.go:68: settings jitter=0s rate=0 automatic_burst=0
+    pool_load_test.go:117: LOAD scenario=limit tasks=400 succeeded=400 errors=0 elapsed_ms=145.459 rps=2749.912 http_p50_ms=5.559 http_p95_ms=6.990 peak_handlers=16 peak_100ms=288
+=== RUN   TestHTTPLoad/jitter
+    pool_load_test.go:68: settings jitter=50ms rate=0 automatic_burst=0
+    pool_load_test.go:117: LOAD scenario=jitter tasks=400 succeeded=400 errors=0 elapsed_ms=829.215 rps=482.384 http_p50_ms=5.486 http_p95_ms=6.100 peak_handlers=9 peak_100ms=59
+=== RUN   TestHTTPLoad/rate
+    pool_load_test.go:68: settings jitter=0s rate=200 automatic_burst=16
+    pool_load_test.go:117: LOAD scenario=rate tasks=400 succeeded=400 errors=0 elapsed_ms=1926.583 rps=207.621 http_p50_ms=5.580 http_p95_ms=6.596 peak_handlers=16 peak_100ms=36
+=== RUN   TestHTTPLoad/rate_jitter
+    pool_load_test.go:68: settings jitter=50ms rate=200 automatic_burst=16
+    pool_load_test.go:117: LOAD scenario=rate_jitter tasks=400 succeeded=400 errors=0 elapsed_ms=1928.516 rps=207.413 http_p50_ms=5.555 http_p95_ms=6.279 peak_handlers=6 peak_100ms=36
+--- PASS: TestHTTPLoad (4.84s)
+    --- PASS: TestHTTPLoad/limit (0.15s)
+    --- PASS: TestHTTPLoad/jitter (0.83s)
+    --- PASS: TestHTTPLoad/rate (1.93s)
+    --- PASS: TestHTTPLoad/rate_jitter (1.93s)
+=== RUN   TestHTTPLoad
+    pool_load_test.go:24: environment go=go1.26.5 os=windows arch=amd64 GOMAXPROCS=12 tasks=400 workers=16 server_delay=5ms
+=== RUN   TestHTTPLoad/limit
+    pool_load_test.go:68: settings jitter=0s rate=0 automatic_burst=0
+    pool_load_test.go:117: LOAD scenario=limit tasks=400 succeeded=400 errors=0 elapsed_ms=147.314 rps=2715.288 http_p50_ms=5.649 http_p95_ms=6.206 peak_handlers=16 peak_100ms=302
+=== RUN   TestHTTPLoad/jitter
+    pool_load_test.go:68: settings jitter=50ms rate=0 automatic_burst=0
+    pool_load_test.go:117: LOAD scenario=jitter tasks=400 succeeded=400 errors=0 elapsed_ms=830.397 rps=481.697 http_p50_ms=5.622 http_p95_ms=6.004 peak_handlers=7 peak_100ms=58
+=== RUN   TestHTTPLoad/rate
+    pool_load_test.go:68: settings jitter=0s rate=200 automatic_burst=16
+    pool_load_test.go:117: LOAD scenario=rate tasks=400 succeeded=400 errors=0 elapsed_ms=1926.248 rps=207.658 http_p50_ms=5.507 http_p95_ms=6.554 peak_handlers=16 peak_100ms=35
+=== RUN   TestHTTPLoad/rate_jitter
+    pool_load_test.go:68: settings jitter=50ms rate=200 automatic_burst=16
+    pool_load_test.go:117: LOAD scenario=rate_jitter tasks=400 succeeded=400 errors=0 elapsed_ms=1931.013 rps=207.145 http_p50_ms=5.612 http_p95_ms=6.312 peak_handlers=6 peak_100ms=35
+--- PASS: TestHTTPLoad (4.84s)
+    --- PASS: TestHTTPLoad/limit (0.15s)
+    --- PASS: TestHTTPLoad/jitter (0.83s)
+    --- PASS: TestHTTPLoad/rate (1.93s)
+    --- PASS: TestHTTPLoad/rate_jitter (1.93s)
+=== RUN   TestHTTPLoad
+    pool_load_test.go:24: environment go=go1.26.5 os=windows arch=amd64 GOMAXPROCS=12 tasks=400 workers=16 server_delay=5ms
+=== RUN   TestHTTPLoad/limit
+    pool_load_test.go:68: settings jitter=0s rate=0 automatic_burst=0
+    pool_load_test.go:117: LOAD scenario=limit tasks=400 succeeded=400 errors=0 elapsed_ms=140.601 rps=2844.920 http_p50_ms=5.430 http_p95_ms=6.280 peak_handlers=16 peak_100ms=304
+=== RUN   TestHTTPLoad/jitter
+    pool_load_test.go:68: settings jitter=50ms rate=0 automatic_burst=0
+    pool_load_test.go:117: LOAD scenario=jitter tasks=400 succeeded=400 errors=0 elapsed_ms=800.416 rps=499.740 http_p50_ms=5.526 http_p95_ms=6.149 peak_handlers=8 peak_100ms=62
+=== RUN   TestHTTPLoad/rate
+    pool_load_test.go:68: settings jitter=0s rate=200 automatic_burst=16
+    pool_load_test.go:117: LOAD scenario=rate tasks=400 succeeded=400 errors=0 elapsed_ms=1925.829 rps=207.703 http_p50_ms=5.624 http_p95_ms=6.502 peak_handlers=16 peak_100ms=36
+=== RUN   TestHTTPLoad/rate_jitter
+    pool_load_test.go:68: settings jitter=50ms rate=200 automatic_burst=16
+    pool_load_test.go:117: LOAD scenario=rate_jitter tasks=400 succeeded=400 errors=0 elapsed_ms=1929.639 rps=207.293 http_p50_ms=5.552 http_p95_ms=6.346 peak_handlers=5 peak_100ms=35
+--- PASS: TestHTTPLoad (4.80s)
+    --- PASS: TestHTTPLoad/limit (0.14s)
+    --- PASS: TestHTTPLoad/jitter (0.80s)
+    --- PASS: TestHTTPLoad/rate (1.93s)
+    --- PASS: TestHTTPLoad/rate_jitter (1.93s)
+=== RUN   TestHTTPLoad
+    pool_load_test.go:24: environment go=go1.26.5 os=windows arch=amd64 GOMAXPROCS=12 tasks=400 workers=16 server_delay=5ms
+=== RUN   TestHTTPLoad/limit
+    pool_load_test.go:68: settings jitter=0s rate=0 automatic_burst=0
+    pool_load_test.go:117: LOAD scenario=limit tasks=400 succeeded=400 errors=0 elapsed_ms=256.812 rps=1557.560 http_p50_ms=6.016 http_p95_ms=36.747 peak_handlers=16 peak_100ms=237
+=== RUN   TestHTTPLoad/jitter
+    pool_load_test.go:68: settings jitter=50ms rate=0 automatic_burst=0
+    pool_load_test.go:117: LOAD scenario=jitter tasks=400 succeeded=400 errors=0 elapsed_ms=823.565 rps=485.693 http_p50_ms=5.558 http_p95_ms=6.285 peak_handlers=10 peak_100ms=62
+=== RUN   TestHTTPLoad/rate
+    pool_load_test.go:68: settings jitter=0s rate=200 automatic_burst=16
+    pool_load_test.go:117: LOAD scenario=rate tasks=400 succeeded=400 errors=0 elapsed_ms=1925.815 rps=207.704 http_p50_ms=5.529 http_p95_ms=6.366 peak_handlers=16 peak_100ms=36
+=== RUN   TestHTTPLoad/rate_jitter
+    pool_load_test.go:68: settings jitter=50ms rate=200 automatic_burst=16
+    pool_load_test.go:117: LOAD scenario=rate_jitter tasks=400 succeeded=400 errors=0 elapsed_ms=1931.387 rps=207.105 http_p50_ms=5.532 http_p95_ms=6.242 peak_handlers=6 peak_100ms=35
+--- PASS: TestHTTPLoad (4.95s)
+    --- PASS: TestHTTPLoad/limit (0.26s)
+    --- PASS: TestHTTPLoad/jitter (0.83s)
+    --- PASS: TestHTTPLoad/rate (1.93s)
+    --- PASS: TestHTTPLoad/rate_jitter (1.93s)
+PASS
+ok  	github.com/mitrandir69/go-async-worker	25.612s

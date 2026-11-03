@@ -52,9 +52,11 @@ to the new ones.
 
 ### Added
 
-- `WithRateLimit(rps, burst)` caps task starts with a token bucket shared by
+- `WithRateLimit(rps)` caps task starts with a token bucket shared by
   all workers and runs of a pool. Token waits follow jitter, respect cancellation,
-  and require no external dependencies. Resetting tasks does not refill tokens.
+  and require no external dependencies. Burst is computed automatically as
+  `max(1, min(worker limit, floor(rps)))` after all options are applied.
+  Resetting tasks does not refill tokens.
 
 - `WithJitter(maxDelay)` spreads task starts with an independent random delay
   before every task, including the first per worker. Waiting respects run

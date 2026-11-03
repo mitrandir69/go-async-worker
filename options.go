@@ -13,7 +13,6 @@ type config struct {
 	limit         int
 	jitter        time.Duration
 	rate          float64
-	burst         int
 	label         string
 	stopOnErr     bool
 	recoverPanics bool
@@ -58,23 +57,25 @@ func WithJitter(maxDelay time.Duration) Option {
 }
 
 // WithRateLimit limits task starts using a token bucket shared by all workers
-// and runs of this pool. The bucket starts full, holds up to burst tokens, and
-// refills at rps tokens per second. Each task start consumes one token. With
-// burst 1, the first task can start immediately and subsequent starts are
-// spaced by at least 1/rps seconds. Idle time can replenish the burst.
+// and runs of this pool. The bucket starts full and refills at rps tokens per
+// second. Each task start consumes one token. Its burst capacity is computed
+// after all options are applied: min(worker limit, floor(rps)), at least 1.
+// The worker limit defaults to [runtime.NumCPU]. Option order does not affect
+// this calculation. Idle time replenishes the burst, so it is available both
+// at startup and after idle periods, rather than only before limiting begins.
 //
 // Workers wait after jitter, occupying a worker slot. Cancellation interrupts
 // the wait and tasks that have not started are reported with [ErrNotRun].
 // Requests and retries within a task are not limited. Separate pools have
 // independent buckets; [Pool.Reset] does not reset the bucket.
 //
-// Rate limiting is disabled by default. A non-positive or non-finite rps, or
-// a burst below 1, disables it, including a limit set by an earlier option.
-func WithRateLimit(rps float64, burst int) Option {
+// Rate limiting is disabled by default. A non-positive or non-finite rps
+// disables it, including a limit set by an earlier option.
+func WithRateLimit(rps float64) Option {
 	return func(c *config) {
-		c.rate, c.burst = 0, 0
-		if rps > 0 && !math.IsInf(rps, 0) && !math.IsNaN(rps) && burst >= 1 {
-			c.rate, c.burst = rps, burst
+		c.rate = 0
+		if rps > 0 && !math.IsInf(rps, 0) && !math.IsNaN(rps) {
+			c.rate = rps
 		}
 	}
 }

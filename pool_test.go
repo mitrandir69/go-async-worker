@@ -642,18 +642,18 @@ func TestWaitTaskDelay(t *testing.T) {
 
 func TestRateLimitTaskStarts(t *testing.T) {
 	t.Parallel()
-	pool := New[int](WithLimit(4), WithRateLimit(100, 1), WithJitter(time.Millisecond))
-	for i := 0; i < 5; i++ {
+	pool := New[int](WithLimit(4), WithRateLimit(100), WithJitter(time.Millisecond))
+	for i := 0; i < 12; i++ {
 		pool.AddFunc(func(context.Context) (int, error) { return i, nil })
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	start := time.Now()
 	report := pool.Run(ctx)
-	if elapsed := time.Since(start); elapsed < 40*time.Millisecond {
-		t.Errorf("five starts with burst 1 at 100/s took %v, want >= 40ms", elapsed)
+	if elapsed := time.Since(start); elapsed < 80*time.Millisecond {
+		t.Errorf("twelve starts with burst 4 at 100/s took %v, want >= 80ms", elapsed)
 	}
-	if report.Status != StatusDone || report.Succeeded != 5 {
+	if report.Status != StatusDone || report.Succeeded != 12 {
 		t.Fatalf("unexpected report: %+v", report)
 	}
 	for i, res := range report.Results {
@@ -666,7 +666,7 @@ func TestRateLimitTaskStarts(t *testing.T) {
 func TestRateLimitSharedAcrossRuns(t *testing.T) {
 	t.Parallel()
 	var calls atomic.Int64
-	pool := NewErrPool(WithRateLimit(0.001, 1))
+	pool := NewErrPool(WithRateLimit(0.001))
 	pool.Add(Do(func(context.Context) error { calls.Add(1); return nil }))
 	if report := pool.Run(context.Background()); report.Status != StatusDone {
 		t.Fatalf("first run: %+v", report)
@@ -704,7 +704,7 @@ func TestRateLimitWaitCancellation(t *testing.T) {
 			t.Parallel()
 			entered := make(chan struct{})
 			var progress int
-			opts := []Option{WithLimit(4), WithRateLimit(0.001, 1), WithProgress(func(done, total int) { progress = done })}
+			opts := []Option{WithLimit(4), WithRateLimit(0.001), WithProgress(func(done, total int) { progress = done })}
 			if tt.failFast {
 				opts = append(opts, WithStopOnFirstError())
 			}
