@@ -4,8 +4,8 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/mitrandir69/go-async-worker.svg)](https://pkg.go.dev/github.com/mitrandir69/go-async-worker)
 [![Go Report Card](https://goreportcard.com/badge/github.com/mitrandir69/go-async-worker)](https://goreportcard.com/report/github.com/mitrandir69/go-async-worker)
 
-Run a set of tasks concurrently with a bounded number of goroutines, and get
-back a typed result and a real error for every one of them.
+Run tasks through a managed queue, a batch, or an existing channel with a
+bounded number of goroutines, and get typed results and errors.
 
 No dependencies outside the standard library.
 
@@ -43,6 +43,34 @@ for _, res := range report.Failed() { // and the ones that did not
 ```
 
 ## Quick start
+
+For tasks arriving over time, let the library manage the queue, channels and
+workers. `NewErrQueue` starts immediately and accepts ordinary error-returning
+functions:
+
+```go
+queue := asyncworker.NewErrQueue(ctx,
+    asyncworker.WithLimit(16),
+    asyncworker.WithRateLimit(200),
+)
+defer queue.Stop()
+
+for _, message := range messages {
+    if err := queue.AddFunc(func(ctx context.Context) error {
+        return send(ctx, message)
+    }); err != nil {
+        return err
+    }
+}
+
+return queue.CloseAndWait().Err()
+```
+
+There is no channel to create or close, no producer goroutine to start, and no
+result channel to drain. `AddFunc` waits when the queue is full. `CloseAndWait`
+finishes all accepted work and returns its summary; `Stop` cancels early.
+
+## Batch runs
 
 ```go
 package main
@@ -142,6 +170,151 @@ case <-somethingElse:
 report := handle.Wait() // idempotent
 ```
 
+## Managed queues and results
+
+For tasks producing values, use `NewQueue[T]`. An optional `OnResult` handler
+receives results one at a time, so it can update local state without a mutex:
+
+```go
+sum := 0
+queue := asyncworker.NewQueue[int](ctx, asyncworker.WithLimit(4)).
+    OnResult(func(result asyncworker.Result[int]) {
+        if result.Err == nil {
+            sum += result.Value
+        }
+    })
+defer queue.Stop()
+
+for i := 1; i <= 5; i++ {
+    if err := queue.AddFunc(func(context.Context) (int, error) {
+        return i * i, nil
+    }); err != nil {
+        return err
+    }
+}
+
+report := queue.CloseAndWait()
+fmt.Println(sum) // 55; CloseAndWait also waits for result handlers
+return report.Err()
+```
+
+Install `OnResult` before adding tasks to observe every accepted task. Results
+arrive in completion order; `Index` records the internal input receive order.
+`Add` also accepts a `Task[T]` directly. `NewErrQueue` accepts `func(ctx) error`
+through `AddFunc` without requiring a `Do` adapter. It supports `OnResult` too.
+All existing worker, rate, jitter, progress, panic and fail-fast options apply.
+
+The pending-task buffer defaults to the final `WithLimit` value, and the result
+buffer has the same capacity. Result handling and workers run internally.
+No result history is retained: without a handler, values are discarded after
+updating counters. Working memory is bounded by the worker limit, in addition
+to data retained by the caller or tasks. Slow handlers apply backpressure and
+must return; they must not call blocking operations such as `Add` or
+`CloseAndWait` on the same queue. Calling `Stop` or `Close` from a handler is
+safe. Handler panics are not recovered, like progress callback panics.
+
+`Add`/`AddFunc`, handler replacement and closing are safe for concurrent use:
+
+- `CloseAndWait` closes admission, processes all accepted tasks and callbacks,
+  and returns a `StreamReport`. Repeated or concurrent calls return the same
+  summary.
+- `Stop` cancels tasks and skips queued work. It returns immediately; call
+  `CloseAndWait` to wait for running tasks and callbacks to return.
+- `Close` stops admission without waiting. `Done` closes when the final summary
+  is ready. These are optional when using `CloseAndWait`.
+
+After closing, submissions return `ErrQueueClosed`. Cancellation also unblocks
+pending submissions; they may return the cancellation cause instead. Calls
+overlapping close/cancellation may be accepted or rejected, and rejected tasks
+are not counted. Every successful `Add` is counted in the final `Total`, even
+if it is still buffered when cancellation or fail-fast occurs. Skipped tasks
+receive `ErrNotRun` wrapping the cancellation cause. A queue's internal result
+consumer delivers every accepted task to an installed handler, including skipped
+tasks after cancellation; `Dropped` is zero. No external consumer is needed.
+
+The summary contains success/failure/skip counters, label, timing, cancellation
+cause and the first observed task error. `report.Err()` joins that first error
+with the cancellation cause; it does not retain every task error. Use `OnResult`
+to inspect individual failures. `WithProgress` reports `(completed, -1)` because
+the eventual total is unknown.
+
+## Using an existing task channel
+
+Use the lower-level `Stream` when the caller already owns a task channel. It starts workers immediately and
+executes tasks as they are received, without waiting for the input to close.
+Closing input finishes the stream after accepted tasks return. `Stream` uses
+the pool's options and shared rate limiter; tasks registered with `Add` belong
+to batch runs and are not consumed by the stream.
+
+```go
+ctx, cancel := context.WithCancel(context.Background())
+defer cancel()
+
+pool := asyncworker.New[int](
+    asyncworker.WithLimit(4),
+    asyncworker.WithRateLimit(200),
+    asyncworker.WithJitter(10*time.Millisecond),
+)
+tasks := make(chan asyncworker.Task[int], 16)
+handle := pool.Stream(ctx, tasks)
+defer handle.Stop()
+
+go func() {
+    defer close(tasks) // the producer owns the input channel
+    for i := 0; i < 100; i++ {
+        task := asyncworker.TaskFunc[int](func(ctx context.Context) (int, error) {
+            return i * i, nil
+        })
+        select {
+        case tasks <- task:
+        case <-ctx.Done():
+            return
+        case <-handle.Done():
+            return
+        }
+    }
+}()
+
+for result := range handle.Results() {
+    if result.Err != nil {
+        log.Printf("task %d: %v", result.Index, result.Err)
+        continue
+    }
+    fmt.Println(result.Index, result.Value)
+}
+summary := handle.Wait()
+fmt.Println(summary.Status, summary.Total, summary.Succeeded)
+```
+
+Results are delivered as tasks finish; `Index` identifies their input receive
+order, starting at zero. Read results concurrently with production. A full
+result buffer applies backpressure; calling `Wait` before consuming results
+can block. `Results` closes when the run finishes. `Done`, `Stop` and repeated
+or concurrent `Wait` calls are supported. For an `ErrPool`, send tasks created
+with `Do` and consume the resulting `Result[Void]` channel in the same way.
+
+The stream retains no task/result history: worker state and its result buffer
+are bounded by `WithLimit`, in addition to the caller's input buffer. The
+`StreamReport` returned by `Wait` contains `Total` received tasks, `Succeeded`,
+`Failed`, `Skipped`, `Dropped`, the first task error, the cancellation cause,
+label, status and timestamps. `Total = Succeeded + Failed + Skipped`.
+Results already delivered to a consumer or buffered are not retained in the
+summary. `WithProgress` receives `(completed, -1)` once per executed task,
+serialized within that stream; skipped tasks do not trigger it.
+
+Context cancellation, `Stop` and fail-fast stop input reception, cancel running
+tasks, and interrupt jitter/rate waits. Accepted tasks that have not started
+are counted as `Skipped` with `ErrNotRun` wrapping the cause. Tasks remaining
+in input are neither consumed nor counted. The pool never closes or drains
+input. Producers should select on cancellation or `handle.Done()` when sending.
+
+On cancellation, result delivery stops blocking: results that cannot be sent
+are counted as `Dropped`. Already buffered results remain readable. The summary
+still counts every accepted task and retains its first task failure. This lets
+`Stop` finish even when results are no longer being consumed. Running tasks must
+cooperate with cancellation, just as with batch runs. A nil or open empty input
+waits for more work until canceled; a normally closed empty input is `StatusEmpty`.
+
 ## Options
 
 | Option | Effect |
@@ -151,7 +324,7 @@ report := handle.Wait() // idempotent
 | `WithRateLimit(rps)` | Token bucket for task starts, shared by all workers and runs of this pool. Refills at `rps` tokens/sec. Burst is `max(1, min(worker limit, floor(rps)))`. Off by default. Invalid rates disable it. |
 | `WithLabel(s)` | Names the run; copied into `Report.Label` for logs. |
 | `WithStopOnFirstError()` | Cancel the run as soon as a task fails. Off by default: a run attempts every task and collects all errors. |
-| `WithProgress(fn)` | Called once per finished task with `(done, total)`. Calls are serialized, so `fn` needs no lock. |
+| `WithProgress(fn)` | Called once per executed task with `(done, total)`; stream total is `-1`. Calls are serialized within each run. |
 | `WithoutPanicRecovery()` | Let a panicking task crash the process. |
 
 For remote calls, combine a concurrency limit with jitter to spread task starts:
@@ -217,20 +390,39 @@ apply a limiter inside the task if it sends multiple requests or retries.
 - You want "run N things, abort on the first error" and nothing else —
   [`errgroup`](https://pkg.go.dev/golang.org/x/sync/errgroup) with `SetLimit`
   is smaller and already in most projects.
-- Your work arrives as an unbounded stream. A pool's tasks are added up front,
-  so memory grows with the number of tasks. Feed a channel to a fixed set of
-  workers instead.
+- You need persistent queues, delivery acknowledgements or automatic retries.
+  Queues and `Stream` provide in-memory processing with backpressure; persistence
+  and redelivery belong to the caller.
 - You need retries, scheduling, or request-level rate limiting inside tasks.
   This pool limits task starts and does not manage requests made within them.
 
 ## Examples
 
-Two runnable programs, both self-contained:
+Ten runnable programs cover the main APIs. Start with a managed queue; each
+example is self-contained, and HTTP requests only target local test servers.
+
+| Example | Shows |
+| --- | --- |
+| [queue](example/queue/main.go) | Minimal `NewErrQueue`, `AddFunc`, `CloseAndWait` |
+| [queue_results](example/queue_results/main.go) | Typed values, serialized `OnResult`, individual errors |
+| [queue_http](example/queue_http/main.go) | HTTP with concurrency, rate limiting and jitter |
+| [producers](example/producers/main.go) | Several producers sharing a managed queue |
+| [cancellation](example/cancellation/main.go) | Deadline, backpressure and accounting for accepted work |
+| [simple](example/simple/main.go) | Typed batch results, progress and a JSON report |
+| [httpcollect](example/httpcollect/main.go) | Batch HTTP collection and all task failures |
+| [failfast](example/failfast/main.go) | Custom `Task` implementation and stop on first error |
+| [background](example/background/main.go) | Background batch, `Handle.Stop` and `Wait` |
+| [stream](example/stream/main.go) | External task channel with live results |
 
 ```bash
-go run ./example/simple      # typed results, progress, JSON report
-go run ./example/httpcollect # concurrent HTTP against a local test server
+go run ./example/queue
+go run ./example/queue_results
+go run ./example/queue_http
 ```
+
+See the [example guide](example/README.md) for all commands, expected results and
+when to choose each API. [Executable godoc examples](example_test.go) are checked
+by `go test` as well.
 
 ## Migrating from the pre-1.0 API
 
