@@ -6,7 +6,8 @@ import (
 	"time"
 )
 
-// Option configures a pool. Pass options to [New] or [NewErrPool].
+// Option configures a pool or queue. Pass options to [New], [NewErrPool],
+// [NewQueue] or [NewErrQueue].
 type Option func(*config)
 
 type config struct {
@@ -99,6 +100,7 @@ func WithStopOnFirstError() Option {
 // the number of tasks finished so far and the total. Calls are
 // serialized, so fn does not need to be safe for concurrent use, and a
 // slow fn slows the run down.
+// For [Pool.Stream] and queues, total is -1 because the final input size is unknown.
 //
 // Unlike a panic in a task, a panic in fn is not recovered: it is a bug
 // in the callback, and there is no task to blame it on.

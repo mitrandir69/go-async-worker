@@ -1,6 +1,19 @@
 // Package asyncworker runs a set of tasks concurrently with a bounded
 // number of goroutines and reports what happened to each of them.
 //
+// For tasks arriving over time, [NewErrQueue] and [NewQueue] manage channels,
+// workers and result consumption internally:
+//
+//	queue := asyncworker.NewErrQueue(ctx, asyncworker.WithLimit(4))
+//	defer queue.Stop()
+//	if err := queue.AddFunc(send); err != nil {
+//		return err
+//	}
+//	return queue.CloseAndWait().Err()
+//
+// Optional [Queue.OnResult] handlers receive typed task results serially.
+// Without one, a queue retains only counters, timing and the first task error.
+//
 // A [Pool] is built, filled with tasks and run:
 //
 //	pool := asyncworker.New[int](asyncworker.WithLimit(8))
@@ -21,6 +34,13 @@
 //	pool.Add(asyncworker.Do(func(ctx context.Context) error {
 //		return send(ctx)
 //	}))
+//
+// Tasks can also arrive over time through a channel. [Pool.Stream] returns
+// a handle whose Results channel should be consumed while tasks are being
+// produced. Closing the input finishes the stream; cancellation or
+// [StreamHandle.Stop] interrupts it. [StreamHandle.Wait] returns counters and
+// timing without retaining task results, so a long-lived stream does not
+// accumulate result history.
 //
 // Three properties are worth knowing before relying on the package.
 //

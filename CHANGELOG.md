@@ -52,6 +52,24 @@ to the new ones.
 
 ### Added
 
+- Eight runnable examples for managed queues, typed results, throttled HTTP,
+  concurrent producers, deadlines, custom fail-fast tasks, background stopping
+  and caller-owned task channels. The example guide lists commands and expected
+  behavior; an executable godoc example also covers batch reuse with `Reset`.
+
+- `NewQueue[T]` and `NewErrQueue` own task channels, workers and result
+  consumption. Submit with `Add`/`AddFunc`, finish with `CloseAndWait`, or cancel
+  with `Stop`. Optional `OnResult` handlers are serialized; queues retain no
+  result history and account for every accepted task, including queued work
+  skipped on cancellation. `StreamReport.Err()` exposes the first task failure
+  and cancellation cause without aggregating an unbounded error history.
+
+- `Pool.Stream(ctx, tasks)` executes tasks arriving on a channel with bounded
+  workers and buffered results. `StreamHandle` supports live results, Stop,
+  Done and Wait; `StreamReport` summarizes counts without retaining results.
+  Jitter, the pool-wide rate limiter, cancellation, fail-fast and panic recovery
+  apply to streaming runs. Stream progress reports an unknown total as -1.
+
 - `WithRateLimit(rps)` caps task starts with a token bucket shared by
   all workers and runs of a pool. Token waits follow jitter, respect cancellation,
   and require no external dependencies. Burst is computed automatically as

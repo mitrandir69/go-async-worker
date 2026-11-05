@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand/v2"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -183,14 +182,7 @@ func (p *Pool[T]) run(ctx context.Context, stop context.CancelCauseFunc, tasks [
 		go func() {
 			defer wg.Done()
 			for idx := range jobs {
-				var delay time.Duration
-				if p.cfg.jitter > 0 {
-					delay = time.Duration(rand.Int64N(int64(p.cfg.jitter)))
-				}
-				if !waitTaskDelay(ctx, delay) {
-					return
-				}
-				if !p.limiter.wait(ctx) {
+				if !p.waitTaskStart(ctx) {
 					return
 				}
 				results[idx] = p.runTask(ctx, idx, tasks[idx])

@@ -40,7 +40,8 @@ var (
 // task failed and wraps the error that task returned, so [errors.Is] and
 // [errors.As] keep working through it.
 type TaskError struct {
-	// Index is the task's position in the order it was added to the pool.
+	// Index is the task's position in addition order, or input receive order
+	// for [Pool.Stream].
 	Index int
 	// Err is what the task returned, or a [*PanicError] if it panicked.
 	Err error
@@ -65,7 +66,8 @@ func (e *PanicError) Error() string { return fmt.Sprintf("panic: %v", e.Value) }
 
 // Result is the outcome of one task.
 type Result[T any] struct {
-	// Index is the task's position in the order it was added to the pool.
+	// Index is the task's position in addition order, or input receive order
+	// for [Pool.Stream].
 	Index int
 	// Value is what the task returned. It is the zero value of T when Err
 	// is not nil.

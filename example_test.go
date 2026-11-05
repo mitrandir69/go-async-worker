@@ -9,6 +9,40 @@ import (
 	asyncworker "github.com/mitrandir69/go-async-worker"
 )
 
+func ExampleNewErrQueue() {
+	queue := asyncworker.NewErrQueue(context.Background(), asyncworker.WithLimit(4))
+	defer queue.Stop()
+	for i := 0; i < 5; i++ {
+		if err := queue.AddFunc(func(context.Context) error { return nil }); err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
+	report := queue.CloseAndWait()
+	fmt.Println(report.Status, report.Succeeded, report.Err())
+	// Output: done 5 <nil>
+}
+
+func ExampleNewQueue() {
+	sum := 0
+	queue := asyncworker.NewQueue[int](context.Background(), asyncworker.WithLimit(4)).
+		OnResult(func(result asyncworker.Result[int]) {
+			if result.Err == nil {
+				sum += result.Value
+			}
+		})
+	defer queue.Stop()
+	for i := 1; i <= 5; i++ {
+		if err := queue.AddFunc(func(context.Context) (int, error) { return i * i, nil }); err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
+	report := queue.CloseAndWait()
+	fmt.Println(report.Status, report.Succeeded, sum)
+	// Output: done 5 55
+}
+
 func ExampleWithJitter() {
 	pool := asyncworker.New[int](
 		asyncworker.WithLimit(4),
@@ -33,6 +67,37 @@ func ExampleWithRateLimit() {
 	report := pool.Run(context.Background())
 	fmt.Println(report.Status, report.Values())
 	// Output: done [0 1 2]
+}
+
+func ExamplePool_Stream() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	pool := asyncworker.New[int](asyncworker.WithLimit(2))
+	input := make(chan asyncworker.Task[int])
+	handle := pool.Stream(ctx, input)
+	defer handle.Stop()
+	go func() {
+		defer close(input)
+		for i := 0; i < 5; i++ {
+			task := asyncworker.TaskFunc[int](func(context.Context) (int, error) { return i * i, nil })
+			select {
+			case input <- task:
+			case <-ctx.Done():
+				return
+			case <-handle.Done():
+				return
+			}
+		}
+	}()
+	sum := 0
+	for result := range handle.Results() {
+		if result.Err == nil {
+			sum += result.Value
+		}
+	}
+	summary := handle.Wait()
+	fmt.Println(summary.Status, summary.Succeeded, sum)
+	// Output: done 5 30
 }
 
 // The type parameter is the value a task produces, so results come back
@@ -127,6 +192,24 @@ func ExamplePool_Start() {
 
 	fmt.Println(handle.Wait().Status)
 	// Output: done
+}
+
+// Running a pool does not consume its tasks. Reset drops them before the next
+// batch, without changing an already running batch.
+func ExamplePool_Reset() {
+	pool := asyncworker.New[int](asyncworker.WithLimit(2))
+	pool.AddFunc(func(context.Context) (int, error) { return 10, nil })
+	fmt.Println(pool.Run(context.Background()).Values())
+	fmt.Println(pool.Run(context.Background()).Values())
+	pool.Reset()
+	fmt.Println("tasks after reset:", pool.Len())
+	pool.AddFunc(func(context.Context) (int, error) { return 20, nil })
+	fmt.Println(pool.Run(context.Background()).Values())
+	// Output:
+	// [10]
+	// [10]
+	// tasks after reset: 0
+	// [20]
 }
 
 // WithStopOnFirstError skips the tasks that have not started once one
